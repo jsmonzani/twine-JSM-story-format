@@ -1,3 +1,4 @@
+console.log("*** Start");
 // Require the 'fs' package
 const fs = require('fs');
 
@@ -16,3 +17,4 @@ story.source = indexFile;
 let format = "window.storyFormat(" + JSON.stringify(story) + ");";
 // Write the "format.js" file using
 fs.writeFileSync("dist/format.js", format);
+console.log("*** End");
