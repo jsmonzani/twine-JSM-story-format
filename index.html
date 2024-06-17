@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+    <title>{{STORY_NAME}}</title>
+    <style>
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');    
+/* Define CSS variables for customization */
+:root {
+    --base-font-size: 6vmin;
+    --background-color: #f5f5dc; /* light beige */
+    --text-color: #666666; /* dark grey */
+    --font-family: 'Nanum Pen Script', cursive;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--background-color);
+    font-family: var(--font-family);
+    color: var(--text-color);
+}
+
+#game-container {
+    width: 90vmin;
+    height: 90vmin;
+    padding: 5%;
+    background-color: transparent; /* Make background transparent */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    border: none; /* Remove border */
+}
+
+#step-image-container {
+    height: 30%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#step-image {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+#step-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-top: 5%; /* Add 5% space below the image */
+}
+
+#step-description {
+    font-size: var(--base-font-size);
+}
+
+a {
+    text-decoration: none;
+    color: var(--text-color);
+    padding-left: 0.5em;
+    padding-top: 0.3em;
+    display: inline-block;
+}
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <div id="step-image-container">
+            <img id="step-image" src="assets/nothing.png" alt="">
+        </div>
+        <div id="step-content">
+            <div id="step-description">                
+            </div>
+        </div>
+    </div>
+    {{STORY_DATA}}
+
+    <script>
+        (function (window) {
+
+            /*
+            What is expected in Twine:
+            - pic-FILENAME tag will be converted to an image assets/FILENAME.png - Otherwise assets/nothing.png is loaded
+            - images are preloaded
+            - Multiple pages text: type two returns in the text
+            - OUT is a special word that can by set in Javascript and printed by adding the word OUT in the text
+            - We can include a passage like this <include>passage</include>
+
+
+            */
+            // Add an 'example' global property
+            window.example = {};
+
+            window.example.parse = function parse(result) {
+                let OUT = ""; // set this variable in JS for printing stuff by replacing the OUT name in the code
+                // Look for &lt;
+                // If found, convert into '<'
+                result = result.replace(/&lt;/g, function (match, target) {
+                    return "<";
+                });
+
+                // Look for &gt;
+                // If found, convert into '>'
+                result = result.replace(/&gt;/g, function (match, target) {
+                    return ">";
+                });
+
+                // Using innerHTML will not run any SCRIPT tags.
+                // Look for SCRIPT tags
+                // If found, run eval(text)
+                result = result.replace(/<script>((?:.|\n)*?)<\/script>/g, function (match, target) {
+                    eval(target); // Run the code
+                    return ""; // Replace the code by an empty string so that it's not displayed
+                });
+
+                // The world OUT is replaced by the content of the OUT variable
+                result = result.replace(/OUT/g, function (match, target) {
+                    return OUT;
+                });
+
+                // Look for <include> elements
+                // If found, find the passage, parse it, and return its contents
+                result = result.replace(/<include>(.*?)<\/include>/g, function (match, target) {
+                    // Look for the passage by its name
+                    let passage = example.findPassageByName(target);
+                    // Save a result
+                    let result = "";
+                    // If found?, parse it and save the result
+                    if (passage !== null) {
+                        result = example.parse(passage.innerHTML)
+                    }
+                    // Return result will either be an empty string or the parsed content.
+                    return result;
+                });
+
+                // Look for \n
+                // If found, <convert into '<br>'>
+                /*result = result.trim();
+                result = result.replace(/\n/g, function (match, target) {
+                    return "<br>";
+                });*/
+
+                /*
+                // img:... in the text
+                const stepImage = document.getElementById('step-image');
+                stepImage.src = "assets/nothing.png";
+                result = result.replace(/^img:(\w+)/g, function (match, target) {
+                    stepImage.src = "assets/"+target+".png";
+                    return "";
+                });
+                */
+
+                result = result.trim(); // remove returns and spaces
+                // Look for any text in the pattern of __text__.
+                // If found, replace with <em>text</em>
+                result = result.replace(/\_\_(.*?)\_\_/g, function (match, target) {
+                    return `<em>${target}</em>`;
+                });
+
+                // Look for any text in the pattern of **text**.
+                // If found, replace with <strong>text</strong>
+                result = result.replace(/\*\*(.*?)\*\*/g, function (match, target) {
+                    return `<strong>${target}</strong>`;
+                });
+
+                /* Classic [[links]]  */
+                result = result.replace(/\[\[(.*?)\]\]/g, function (match, target) {
+                    var display = target;
+                    /* display|target format */
+                    var barIndex = target.indexOf('|');
+                    if (barIndex !== -1) {
+                        display = target.substr(0, barIndex);
+                        target = target.substr(barIndex + 1);
+                    } else {
+                        /* display->target format */
+                        var rightArrIndex = target.indexOf('->');
+                        if (rightArrIndex !== -1) {
+                            display = target.substr(0, rightArrIndex);
+                            target = target.substr(rightArrIndex + 2);
+                        } else {
+                            /* target<-display format */
+                            var leftArrIndex = target.indexOf('<-');
+                            if (leftArrIndex !== -1) {
+                                display = target.substr(leftArrIndex + 2);
+                                target = target.substr(0, leftArrIndex);
+                            }
+                        }
+                    }
+                    return '<a href="javascript:void(0)" data-passage="' +
+                        target + '">' + display + '</a>';
+                });
+                return result.trim();
+            }
+            window.example.findPassageByPid = function findPassageByPid(pid) {
+                return document.querySelector(`[pid="${pid}"]`);
+            }
+            window.example.findPassageByName = function findPassageByName(name) {
+                return document.querySelector(`[name="${name}"]`);
+            }
+            window.example.getPassageImageURL = function getPassageImageURL(passagedata) {
+                let tags = passagedata.getAttribute("tags");
+                const prefix = "pic-";
+                const startIndex = tags.indexOf(prefix);
+                const picname = startIndex !== -1 ? tags.substring(startIndex + prefix.length).split(' ')[0] : "";    
+                return picname ? "assets/"+picname+".png" : "assets/nothing.png";            
+            }
+            window.example.preloadImages = function preloadImages() {
+                /*document.querySelectorAll('tw-passagedata').forEach(n => { // version with img:...
+                    match = n.textContent.match(/^img:(\w+)/m);
+                    if (match) {
+                        url = match[1].trim();
+                        const img = new Image();
+                        img.src = url;
+                    }
+                });*/
+                document.querySelectorAll('tw-passagedata').forEach(n => {
+                    url = this.getPassageImageURL(n);
+                    //console.log("Preload " + url);
+                    const img = new Image();
+                    img.src = url;
+                });               
+            }       
+            window.example.showPassage = function showPassage(passagedata) {
+                let passage = document.querySelector('tw-passage');
+                // If pssage is null, it does not exist yet
+                if (passage === null) {
+                    passage = document.createElement('tw-passage'); // Create it
+                }
+
+                // Save the passage contents
+                let passageContents = passagedata.innerHTML;
+
+                // Is there a pic-filename attribute in the tags?
+                const stepImage = document.getElementById('step-image');
+                stepImage.src = example.getPassageImageURL(passagedata);
+
+                // Now parse the text
+                passageContents = example.parse(passageContents);
+
+                // JSM handle multipage content through the \n\n separator
+                let multipage = passageContents.split("\n\n");
+                multipage.forEach(function (elem, idx, array) {
+                    if (idx < array.length - 1) {
+                        multipage[idx] += '<br><a href="javascript:void(0)" continue=""">Continue</a>';
+                    }
+                });
+                // Display the next page, set the links
+                let doNextPage = function() {
+                    let result = multipage.shift().trim(); // take the text
+                    // replace \n by <br> AFTER parsing the \n\n page separator
+                    result = result.replace(/\n/g, function (match, target) {
+                            return "<br>";
+                        });
+                    passage.innerHTML = result;
+                    passage.querySelector('a[continue]')?.addEventListener('click', function () {
+                        doNextPage();
+                    });
+                    // Find all links in the current passage
+                    let links = passage.querySelectorAll('a[data-passage]');
+                    // For each link, add an event listener
+                    for (let link of links) {
+                        link.addEventListener('click', function () {   // If a link is clicked, show it
+                            let passagename = this.attributes["data-passage"].value;
+                            let passagedata = example.findPassageByName(passagename);
+                            example.showPassage(passagedata);
+                        });
+                    }
+
+                }
+                doNextPage();
+                // Append the child element to the HTML <body> into #step-description (If it already exists, it will not be appended.)                
+                document.querySelector("#step-description").appendChild(passage);;
+            }
+
+            // INIT
+            example.preloadImages();            
+            // user defined css
+            let customcss = document.querySelector("#twine-user-stylesheet").textContent;
+            if (customcss) {
+                let customStyle = document.createElement("style");
+                customStyle.textContent = customcss;
+                document.body.appendChild(customStyle);  
+            }
+            // user defined script
+            let customjs = document.querySelector("#twine-user-script").textContent;
+            if (customjs) {
+                let customScript = document.createElement("script");
+                customScript.textContent = customjs;
+                document.body.appendChild(customScript);  
+            }        
+            // Find the 'tw-storydata' element.
+            let storydata = document.querySelector('tw-storydata');
+            // Get the 'startnode' attribute. Save its 'value'.
+            let startnode = storydata.attributes['startnode'].value;
+            // Find the element with a 'pid' of the startnode
+            let passagedata = window.example.findPassageByPid(startnode);
+            // Show the passage matching the startnode
+            example.showPassage(passagedata);
+
+        }(window))
+
+        /*document.addEventListener('DOMContentLoaded', () => {
+            preloadImages();            
+        });*/
+    </script>
+</body>
+
+</html>

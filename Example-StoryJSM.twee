@@ -1,0 +1,63 @@
+:: StoryTitle
+Example-StoryJSM
+
+
+:: StoryData
+{
+  "ifid": "E2B06F0C-62EE-4193-95B0-BCED84524003",
+  "format": "JSM",
+  "format-version": "0.1.1",
+  "start": "demo",
+  "zoom": 1
+}
+
+
+:: citation {"position":"500,100","size":"100,100"}
+I'm another passage.
+
+
+:: demo {"position":"350,100","size":"100,100"}
+Check the story custom CSS and Javascript.
+
+You can define images with the pic-YOURIMAGE tag.
+YOURIMAGE will turn into assets/YOURIMAGE.png
+
+Do you see the page jumps each time I do a double return?
+Cool isn't it?
+Do you want to:
+[[Read the doc->doc]]
+[[Test javascript->testjs]]
+
+
+:: doc {"position":"475,250","size":"100,100"}
+- The story can define custom styles and scripts.
+- pic-FILENAME tag will be converted to an image assets/FILENAME.png - Otherwise assets/nothing.png is loaded
+- images are preloaded
+- Multiple pages text: type two returns in the text
+- OUT is a special word that can by set in Javascript and printed by adding the word OUT in the text
+- You can include a passage like this <include>citation</include>
+[[demo]]
+
+
+:: testjs {"position":"350,250","size":"100,100"}
+This value OUT comes from Javascript. [[demo]]
+<script>
+// OUT is a special word.
+OUT = "OUT";
+</script>
+
+
+
+:: StoryScript [script]
+console.log("Demo custom init script");
+
+:: StoryStylesheet [stylesheet]
+/* Defaults */
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');    
+/* Define CSS variables for customization */
+:root {
+    --base-font-size: 6vmin;
+    --background-color: #f5f5dc; /* light beige */
+    --text-color: #666666; /* dark grey */
+    --font-family: 'Nanum Pen Script', cursive;
+}
