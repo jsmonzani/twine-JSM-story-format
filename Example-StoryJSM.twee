@@ -6,7 +6,7 @@ Example-StoryJSM
 {
   "ifid": "E2B06F0C-62EE-4193-95B0-BCED84524003",
   "format": "JSM",
-  "format-version": "0.1.1",
+  "format-version": "0.9.2",
   "start": "demo",
   "zoom": 1
 }
@@ -19,8 +19,7 @@ I'm another passage.
 :: demo {"position":"350,100","size":"100,100"}
 Check the story custom CSS and Javascript.
 
-You can define images with the pic-YOURIMAGE tag.
-YOURIMAGE will turn into assets/YOURIMAGE.png
+You can define images with tags, as long as they end with .png, .jpg or .gif
 
 Do you see the page jumps each time I do a double return?
 Cool isn't it?
@@ -30,11 +29,13 @@ Do you want to:
 
 
 :: doc {"position":"475,250","size":"100,100"}
-- The story can define custom styles and scripts.
-- pic-FILENAME tag will be converted to an image assets/FILENAME.png - Otherwise assets/nothing.png is loaded
-- images are preloaded
 - Multiple pages text: type two returns in the text
-- OUT is a special word that can by set in Javascript and printed by adding the word OUT in the text
+- Custom stylesheets are supported (for instance, block links)
+- Custom javascript is supported, for instance setting jsm.assetsPath = to your custom path
+- You need a nothing.png image in your assets directory.
+- pictures are set with tags and detected throught their .png, .gif and .jpg. No need to add the assets path here. If no images, nothing.png is loaded
+- images are preloaded but without an await for their completion, so it's best to start with a intro text to help the loading (or I should code it better)
+
 - You can include a passage like this <include>citation</include>
 [[demo]]
 
@@ -47,17 +48,25 @@ OUT = "OUT";
 </script>
 
 
-
 :: StoryScript [script]
 console.log("Demo custom init script");
+//custom path for development
+//jsm.assetsPath = "http://localhost:..........";
+
+
 
 :: StoryStylesheet [stylesheet]
 /* Defaults */
-@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');    
-/* Define CSS variables for customization */
+/*@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');    
 :root {
     --base-font-size: 6vmin;
-    --background-color: #f5f5dc; /* light beige */
-    --text-color: #666666; /* dark grey */
+    --background-color: #f5f5dc; 
+    --text-color: #666666; 
     --font-family: 'Nanum Pen Script', cursive;
+}*/
+
+:root {
+    --background-color: #f7ecdf;
+    --text-color: #2c4354; 
 }
+
