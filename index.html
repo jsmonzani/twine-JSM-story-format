@@ -33,8 +33,8 @@ body, html {
 }
 
 #game-container {
-    width: 90vmin;
-    height: 90vmin;
+    width: 99vmin;
+    height: 99vmin;
     padding: 5%;
     background-color: transparent; /* Make background transparent */
     display: flex;
@@ -68,9 +68,18 @@ body, html {
 a {
     text-decoration: none;
     color: var(--text-color);
-    padding-left: 0.5em;
-    padding-top: 0.3em;
-    display: inline-block;
+}
+/*
+a {padding-top:.3em; padding-left:.5em; display: inline-block;} 
+*/
+
+@media (orientation: portrait) {
+    :root {
+        --base-font-size: 8vmin;    
+    }
+    #game-container {
+        height: 99vmax;
+    }
 }
     </style>
 </head>
@@ -78,7 +87,7 @@ a {
 <body>
     <div id="game-container">
         <div id="step-image-container">
-            <img id="step-image" src="assets/nothing.png" alt="">
+            <img id="step-image" alt="">
         </div>
         <div id="step-content">
             <div id="step-description">                
@@ -92,18 +101,19 @@ a {
 
             /*
             What is expected in Twine:
-            - pic-FILENAME tag will be converted to an image assets/FILENAME.png - Otherwise assets/nothing.png is loaded
-            - images are preloaded
             - Multiple pages text: type two returns in the text
             - OUT is a special word that can by set in Javascript and printed by adding the word OUT in the text
             - We can include a passage like this <include>passage</include>
-
-
+            - Custom stylesheets are supported (for instance, block links)
+            - Custom javascript is supported, for instance setting jsm.assetsPath = to your custom path
+            - You need a nothing.png image in your assets directory.
+            - pictures are set with tags and detected throught their .png, .gif and .jpg. No need to add the assets path here. If no images, nothing.png is loaded
+            - images are preloaded but without an await for their completion, so it's best to start with a intro text to help the loading (or I should code it better)
             */
-            // Add an 'example' global property
-            window.example = {};
+            // Add an 'jsm' global property
+            window.jsm = {assetsPath: "assets/"};
 
-            window.example.parse = function parse(result) {
+            window.jsm.parse = function (result) {
                 let OUT = ""; // set this variable in JS for printing stuff by replacing the OUT name in the code
                 // Look for &lt;
                 // If found, convert into '<'
@@ -134,12 +144,12 @@ a {
                 // If found, find the passage, parse it, and return its contents
                 result = result.replace(/<include>(.*?)<\/include>/g, function (match, target) {
                     // Look for the passage by its name
-                    let passage = example.findPassageByName(target);
+                    let passage = jsm.findPassageByName(target);
                     // Save a result
                     let result = "";
                     // If found?, parse it and save the result
                     if (passage !== null) {
-                        result = example.parse(passage.innerHTML)
+                        result = jsm.parse(passage.innerHTML)
                     }
                     // Return result will either be an empty string or the parsed content.
                     return result;
@@ -203,20 +213,22 @@ a {
                 });
                 return result.trim();
             }
-            window.example.findPassageByPid = function findPassageByPid(pid) {
+            window.jsm.findPassageByPid = function (pid) {
                 return document.querySelector(`[pid="${pid}"]`);
             }
-            window.example.findPassageByName = function findPassageByName(name) {
+            window.jsm.findPassageByName = function (name) {
                 return document.querySelector(`[name="${name}"]`);
             }
-            window.example.getPassageImageURL = function getPassageImageURL(passagedata) {
+            // Detect tags containing .png, .jpg, ou .gif and pick up the first one
+            // Returns the filename or nothing.png
+            window.jsm.getPassageImageURL = function (passagedata) {
                 let tags = passagedata.getAttribute("tags");
-                const prefix = "pic-";
-                const startIndex = tags.indexOf(prefix);
-                const picname = startIndex !== -1 ? tags.substring(startIndex + prefix.length).split(' ')[0] : "";    
-                return picname ? "assets/"+picname+".png" : "assets/nothing.png";            
+                const imageRegex = /\b\w+\.(png|jpg|gif)\b/i;            
+                // Recherche dans la chaîne "tags"
+                let match = tags.match(imageRegex);
+                return match ? jsm.assetsPath+match[0] : jsm.assetsPath+"nothing.png";            
             }
-            window.example.preloadImages = function preloadImages() {
+            window.jsm.preloadImages = function () {
                 /*document.querySelectorAll('tw-passagedata').forEach(n => { // version with img:...
                     match = n.textContent.match(/^img:(\w+)/m);
                     if (match) {
@@ -225,14 +237,18 @@ a {
                         img.src = url;
                     }
                 });*/
+                const processedUrls = new Set();
                 document.querySelectorAll('tw-passagedata').forEach(n => {
-                    url = this.getPassageImageURL(n);
-                    //console.log("Preload " + url);
-                    const img = new Image();
-                    img.src = url;
-                });               
-            }       
-            window.example.showPassage = function showPassage(passagedata) {
+                    const url = this.getPassageImageURL(n);
+                    if (!processedUrls.has(url)) {
+                        processedUrls.add(url);
+                        //console.log("Preloading " + url);
+                        const img = new Image();
+                        img.src = url;
+                    }
+                });
+            }      
+            window.jsm.showPassage = function (passagedata) {
                 let passage = document.querySelector('tw-passage');
                 // If pssage is null, it does not exist yet
                 if (passage === null) {
@@ -242,12 +258,12 @@ a {
                 // Save the passage contents
                 let passageContents = passagedata.innerHTML;
 
-                // Is there a pic-filename attribute in the tags?
+                // Is there a image attribute in the tags?
                 const stepImage = document.getElementById('step-image');
-                stepImage.src = example.getPassageImageURL(passagedata);
+                stepImage.src = jsm.getPassageImageURL(passagedata);
 
                 // Now parse the text
-                passageContents = example.parse(passageContents);
+                passageContents = jsm.parse(passageContents);
 
                 // JSM handle multipage content through the \n\n separator
                 let multipage = passageContents.split("\n\n");
@@ -273,8 +289,8 @@ a {
                     for (let link of links) {
                         link.addEventListener('click', function () {   // If a link is clicked, show it
                             let passagename = this.attributes["data-passage"].value;
-                            let passagedata = example.findPassageByName(passagename);
-                            example.showPassage(passagedata);
+                            let passagedata = jsm.findPassageByName(passagename);
+                            jsm.showPassage(passagedata);
                         });
                     }
 
@@ -285,7 +301,17 @@ a {
             }
 
             // INIT
-            example.preloadImages();            
+            // Launch user defined script first so that it can change jsm.assetsPath for preloading images
+            let customjs = document.querySelector("#twine-user-script").textContent;
+            if (customjs) {
+                //let customScript = document.createElement("script");
+                //customScript.textContent = customjs;
+                //document.body.appendChild(customScript);  
+                eval(customjs);
+            }        
+
+            jsm.preloadImages();
+
             // user defined css
             let customcss = document.querySelector("#twine-user-stylesheet").textContent;
             if (customcss) {
@@ -293,21 +319,14 @@ a {
                 customStyle.textContent = customcss;
                 document.body.appendChild(customStyle);  
             }
-            // user defined script
-            let customjs = document.querySelector("#twine-user-script").textContent;
-            if (customjs) {
-                let customScript = document.createElement("script");
-                customScript.textContent = customjs;
-                document.body.appendChild(customScript);  
-            }        
             // Find the 'tw-storydata' element.
             let storydata = document.querySelector('tw-storydata');
             // Get the 'startnode' attribute. Save its 'value'.
             let startnode = storydata.attributes['startnode'].value;
             // Find the element with a 'pid' of the startnode
-            let passagedata = window.example.findPassageByPid(startnode);
+            let passagedata = window.jsm.findPassageByPid(startnode);
             // Show the passage matching the startnode
-            example.showPassage(passagedata);
+            jsm.showPassage(passagedata);
 
         }(window))
 
