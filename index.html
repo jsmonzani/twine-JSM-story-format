@@ -90,7 +90,8 @@ a {padding-top:.3em; padding-left:.5em; display: inline-block;}
             <img id="step-image" alt="">
         </div>
         <div id="step-content">
-            <div id="step-description">                
+            <div id="step-description">    
+                <tw-passage>loading...</tw-passage>
             </div>
         </div>
     </div>
@@ -98,7 +99,6 @@ a {padding-top:.3em; padding-left:.5em; display: inline-block;}
 
     <script>
         (function (window) {
-
             /*
             What is expected in Twine:
             - Multiple pages text: type two returns in the text
@@ -108,10 +108,11 @@ a {padding-top:.3em; padding-left:.5em; display: inline-block;}
             - Custom javascript is supported, for instance setting jsm.assetsPath = to your custom path
             - You need a nothing.png image in your assets directory.
             - pictures are set with tags and detected throught their .png, .gif and .jpg. No need to add the assets path here. If no images, nothing.png is loaded
-            - images are preloaded but without an await for their completion, so it's best to start with a intro text to help the loading (or I should code it better)
+            - images are preloaded
+            - supports .mp3 or .ogg on the first tag to load music at launch.
             */
             // Add an 'jsm' global property
-            window.jsm = {assetsPath: "assets/"};
+            window.jsm = { assetsPath: "assets/" };
 
             window.jsm.parse = function (result) {
                 let OUT = ""; // set this variable in JS for printing stuff by replacing the OUT name in the code
@@ -223,34 +224,25 @@ a {padding-top:.3em; padding-left:.5em; display: inline-block;}
             // Returns the filename or nothing.png
             window.jsm.getPassageImageURL = function (passagedata) {
                 let tags = passagedata.getAttribute("tags");
-                const imageRegex = /\b\w+\.(png|jpg|gif)\b/i;            
+                const imageRegex = /\b\w+\.(png|jpg|gif)\b/i;
                 // Recherche dans la chaîne "tags"
                 let match = tags.match(imageRegex);
-                return match ? jsm.assetsPath+match[0] : jsm.assetsPath+"nothing.png";            
+                return match ? jsm.assetsPath + match[0] : jsm.assetsPath + "nothing.png";
             }
-            window.jsm.preloadImages = function () {
-                /*document.querySelectorAll('tw-passagedata').forEach(n => { // version with img:...
-                    match = n.textContent.match(/^img:(\w+)/m);
-                    if (match) {
-                        url = match[1].trim();
-                        const img = new Image();
-                        img.src = url;
-                    }
-                });*/
-                const processedUrls = new Set();
-                document.querySelectorAll('tw-passagedata').forEach(n => {
-                    const url = this.getPassageImageURL(n);
-                    if (!processedUrls.has(url)) {
-                        processedUrls.add(url);
-                        //console.log("Preloading " + url);
-                        const img = new Image();
-                        img.src = url;
-                    }
-                });
-            }      
+
+            // Detect tags containing .mp3 .ogg and pick up the first one
+            // Returns the filename or null
+            window.jsm.getPassageMusicURL = function (passagedata) {
+                let tags = passagedata.getAttribute("tags");
+                const imageRegex = /\b\w+\.(mp3|ogg)\b/i;
+                // Recherche dans la chaîne "tags"
+                let match = tags.match(imageRegex);
+                return match ? jsm.assetsPath + match[0] : null;
+            }
+
             window.jsm.showPassage = function (passagedata) {
                 let passage = document.querySelector('tw-passage');
-                // If pssage is null, it does not exist yet
+                // If passage is null, it does not exist yet
                 if (passage === null) {
                     passage = document.createElement('tw-passage'); // Create it
                 }
@@ -273,12 +265,12 @@ a {padding-top:.3em; padding-left:.5em; display: inline-block;}
                     }
                 });
                 // Display the next page, set the links
-                let doNextPage = function() {
+                let doNextPage = function () {
                     let result = multipage.shift().trim(); // take the text
                     // replace \n by <br> AFTER parsing the \n\n page separator
                     result = result.replace(/\n/g, function (match, target) {
-                            return "<br>";
-                        });
+                        return "<br>";
+                    });
                     passage.innerHTML = result;
                     passage.querySelector('a[continue]')?.addEventListener('click', function () {
                         doNextPage();
@@ -299,6 +291,78 @@ a {padding-top:.3em; padding-left:.5em; display: inline-block;}
                 // Append the child element to the HTML <body> into #step-description (If it already exists, it will not be appended.)                
                 document.querySelector("#step-description").appendChild(passage);;
             }
+            window.jsm.preloadImages = function () {
+                const processedUrls = new Set();
+                function preloadImage(url) {
+                    return new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.src = url;
+                        img.onload = () =>  resolve(url);
+                        img.onerror = () => reject(url);
+                    });
+                }
+                document.querySelectorAll('tw-passagedata').forEach(n => {
+                    const url = this.getPassageImageURL(n);
+                    if (!processedUrls.has(url)) {
+                        processedUrls.add(url);
+                    }
+                });
+                //console.log("preloading..." + Array.from(processedUrls));
+                const promises = Array.from(processedUrls).map(preloadImage);
+                return Promise.all(promises);
+            }
+            window.jsm.playMusic = function (music) {
+                if (!music) return;
+                // Créer un nouvel élément audio
+                const audioElement = document.createElement('audio');
+
+                // Définir les attributs de l'élément audio
+                audioElement.id = 'music';
+                audioElement.preload = 'auto';
+
+                // Créer un nouvel élément source pour le fichier audio
+                const sourceElement = document.createElement('source');
+                sourceElement.src = music;
+                sourceElement.type = 'audio/mpeg';                
+                audioElement.loop = true;
+
+                // Ajouter l'élément source à l'élément audio
+                audioElement.appendChild(sourceElement);
+
+                // Ajouter l'élément audio à la page
+                document.body.appendChild(audioElement);
+
+                // Fonction pour démarrer la lecture de la musique
+                function playMusic() {
+                    audioElement.play()
+                        .catch(error => {
+                            console.error('Error loading music :', error);
+                        });
+                }
+
+                // Ajoutez un gestionnaire d'événement pour démarrer la lecture lorsque l'utilisateur interagit
+                document.addEventListener('click', playMusic, { once: true });
+                document.addEventListener('keydown', playMusic, { once: true });
+
+            }
+            window.jsm.launchGame = function () {
+                // user defined css
+                let customcss = document.querySelector("#twine-user-stylesheet").textContent;
+                if (customcss) {
+                    let customStyle = document.createElement("style");
+                    customStyle.textContent = customcss;
+                    document.body.appendChild(customStyle);
+                }
+                // Find the 'tw-storydata' element.
+                let storydata = document.querySelector('tw-storydata');
+                // Get the 'startnode' attribute. Save its 'value'.
+                let startnode = storydata.attributes['startnode'].value;
+                // Find the element with a 'pid' of the startnode
+                let passagedata = window.jsm.findPassageByPid(startnode);
+                // Show the passage matching the startnode
+                jsm.playMusic(jsm.getPassageMusicURL(passagedata));
+                jsm.showPassage(passagedata);
+            }
 
             // INIT
             // Launch user defined script first so that it can change jsm.assetsPath for preloading images
@@ -308,31 +372,21 @@ a {padding-top:.3em; padding-left:.5em; display: inline-block;}
                 //customScript.textContent = customjs;
                 //document.body.appendChild(customScript);  
                 eval(customjs);
-            }        
-
-            jsm.preloadImages();
-
-            // user defined css
-            let customcss = document.querySelector("#twine-user-stylesheet").textContent;
-            if (customcss) {
-                let customStyle = document.createElement("style");
-                customStyle.textContent = customcss;
-                document.body.appendChild(customStyle);  
             }
-            // Find the 'tw-storydata' element.
-            let storydata = document.querySelector('tw-storydata');
-            // Get the 'startnode' attribute. Save its 'value'.
-            let startnode = storydata.attributes['startnode'].value;
-            // Find the element with a 'pid' of the startnode
-            let passagedata = window.jsm.findPassageByPid(startnode);
-            // Show the passage matching the startnode
-            jsm.showPassage(passagedata);
+
+            jsm.preloadImages()
+                .catch((error) => {
+                    console.error(`Error loading ${error}`);
+                })
+                .finally(() => {
+                    jsm.launchGame();
+                });
+
+
 
         }(window))
 
-        /*document.addEventListener('DOMContentLoaded', () => {
-            preloadImages();            
-        });*/
+
     </script>
 </body>
 
