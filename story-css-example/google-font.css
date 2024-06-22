@@ -1,0 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');
+/* Define CSS variables for customization */
+:root {
+    --background-color: #f7ecdf;
+    --text-color: #2c4354; 
+    --font-family: 'Nanum Pen Script',sans-serif; 
+}
+a {padding-top:.3em; padding-left:.5em; display: inline-block;} 
